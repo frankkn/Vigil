@@ -43,16 +43,20 @@
 
 ```
 candles/{uid} = {
-  tz:        string,     // e.g. "Asia/Taipei"
-  message?:  string,     // optional, max 40 chars
-  litAt:     Timestamp,
-  expiresAt: Timestamp   // litAt + 30 minutes
+  tz:         string,     // e.g. "Asia/Taipei"
+  message?:   string,     // optional, max 40 chars
+  litAt:      Timestamp,
+  expiresAt:  Timestamp,  // litAt + 30 minutes
+  offsetLat:  number,     // random jitter, range [-1.5, 1.5] degrees
+  offsetLng:  number      // random jitter, range [-1.5, 1.5] degrees
 }
 ```
 
+`offsetLat` / `offsetLng` 在點燃時由前端產生並寫入，用途是讓同時區的多根蠟燭在地圖上自然散落而不完全重疊。偏移量在蠟燭整個生命週期固定不變；重點時會隨新蠟燭重新隨機。
+
 **Security Rules 強制條件**
 
-- `create`：`litAt == request.time`、`expiresAt == litAt + 30min`、`tz` 為合法時區字串、`message` 若存在則為 `string` 且長度 <= 40
+- `create`：`litAt == request.time`、`expiresAt == litAt + 30min`、`tz` 為合法時區字串、`message` 若存在則為 `string` 且長度 <= 40、`offsetLat` 與 `offsetLng` 為 number 且絕對值 <= 1.5
 - `update`：僅允許「重點（覆寫）」——`resource.data.expiresAt <= request.time`（前一根已燒完）且新資料滿足 `create` 的全部條件；燃燒中的蠟燭任何欄位都不可動
 - `delete: false`（不可提前熄滅）
 - `read`：對所有人開放
@@ -70,6 +74,7 @@ candles/{uid} = {
 - 不可 `delete`
 - `tz` 合法性驗證
 - `expiresAt` 必須剛好等於 `litAt + 30 分鐘`
+- `offsetLat` / `offsetLng` 絕對值 <= 1.5
 
 ---
 
