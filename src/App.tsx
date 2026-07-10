@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import WorldMap from './components/WorldMap'
 import LightPanel from './components/LightPanel'
 import { ensureSignedIn } from './lib/firebase'
 import { lightCandle, subscribeCandles } from './lib/candles'
-import { getUserTz } from './data/timezones'
+import { getUserTz, getTzCity } from './data/timezones'
+import { useIsMobile } from './hooks/useIsMobile'
 import type { Candle } from './lib/types'
 
 export default function App() {
@@ -12,6 +13,7 @@ export default function App() {
   const [candles, setCandles] = useState<Candle[]>([])
   const [error, setError] = useState<string | null>(null)
   const [subKey, setSubKey] = useState(0)
+  const isMobile = useIsMobile()
 
   // 每秒 tick
   useEffect(() => {
@@ -34,6 +36,12 @@ export default function App() {
     return () => { unsub(); clearTimeout(refresh) }
   }, [subKey])
 
+  // 初始視角：自己的時區城市
+  const centerLatLng = useMemo<[number, number]>(() => {
+    const city = getTzCity(getUserTz())
+    return city ? [city.lat, city.lng] : [20, 0]
+  }, [])
+
   // 畫面上只留還亮著的
   const alive = candles.filter(c => c.expiresAt > now.getTime())
   const ownCandle = alive.find(c => c.id === uid) ?? null
@@ -48,17 +56,23 @@ export default function App() {
   }, [uid])
 
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#060d1f', overflow: 'hidden' }}>
+    <div className="app-root" style={{ position: 'relative', background: '#060d1f', overflow: 'hidden' }}>
       {/* Map fills entire background */}
       <div style={{ position: 'absolute', inset: 0 }}>
-        <WorldMap candles={alive} ownCandleId={uid} now={now} />
+        <WorldMap
+          candles={alive}
+          ownCandleId={uid}
+          now={now}
+          centerLatLng={centerLatLng}
+          isMobile={isMobile}
+        />
       </div>
 
       {/* Top status */}
       <div
         style={{
-          position: 'absolute', top: 24, left: '50%', transform: 'translateX(-50%)',
-          color: '#4b5563', fontSize: 13, letterSpacing: '0.05em', whiteSpace: 'nowrap',
+          position: 'absolute', top: isMobile ? 14 : 24, left: '50%', transform: 'translateX(-50%)',
+          color: '#4b5563', fontSize: isMobile ? 12 : 13, letterSpacing: '0.05em', whiteSpace: 'nowrap',
           pointerEvents: 'none',
         }}
       >
@@ -71,17 +85,21 @@ export default function App() {
 
       {/* Title */}
       <div style={{
-        position: 'absolute', top: 24, left: 28,
-        color: 'rgba(251, 191, 36, 0.6)', fontSize: 15, fontWeight: 400, letterSpacing: '0.1em',
+        position: 'absolute', top: isMobile ? 13 : 24, left: isMobile ? 14 : 28,
+        color: 'rgba(251, 191, 36, 0.6)', fontSize: isMobile ? 13 : 15, fontWeight: 400, letterSpacing: '0.1em',
         pointerEvents: 'none',
       }}>
         守夜
       </div>
 
-      {/* Control panel — bottom right */}
-      <div style={{ position: 'absolute', bottom: 32, right: 28 }}>
-        <LightPanel ownCandle={ownCandle} now={now} onLight={handleLight} disabled={!uid} />
-      </div>
+      {/* Control panel：手機貼底全寬，桌面右下浮動 */}
+      {isMobile ? (
+        <LightPanel ownCandle={ownCandle} now={now} onLight={handleLight} disabled={!uid} isMobile />
+      ) : (
+        <div style={{ position: 'absolute', bottom: 32, right: 28 }}>
+          <LightPanel ownCandle={ownCandle} now={now} onLight={handleLight} disabled={!uid} isMobile={false} />
+        </div>
+      )}
     </div>
   )
 }
