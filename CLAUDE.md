@@ -47,12 +47,14 @@ candles/{uid} = {
   message?:   string,     // optional, max 40 chars
   litAt:      Timestamp,
   expiresAt:  Timestamp,  // litAt + 30 minutes
-  offsetLat:  number,     // random jitter, range [-1.5, 1.5] degrees
-  offsetLng:  number      // random jitter, range [-1.5, 1.5] degrees
+  offsetLat:  number,     // random jitter, |x| <= 1.5 degrees (rules 上限)
+  offsetLng:  number      // random jitter, |x| <= 1.5 degrees (rules 上限)
 }
 ```
 
 `offsetLat` / `offsetLng` 在點燃時由前端產生並寫入，用途是讓同時區的多根蠟燭在地圖上自然散落而不完全重疊。偏移量在蠟燭整個生命週期固定不變；重點時會隨新蠟燭重新隨機。
+
+> **散落半徑**：rules 容許 |offset| ≤ 1.5 度作為外層上限，但**前端實際只散落 ±0.3 度**（≈ 33 公里，`SCATTER_DEG` in `candles.ts`）。1.5 度對台灣這種小島太大、會把蠟燭丟進海裡；且加了 zoom 之後重疊的蠟燭本來就能靠放大分離，不需要大偏移。
 
 **Security Rules 強制條件**
 

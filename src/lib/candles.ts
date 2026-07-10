@@ -7,9 +7,14 @@ import type { Candle } from './types'
 
 const BURN_MS = 30 * 60 * 1000
 
-/** [-1.5, 1.5] 的隨機散落偏移 */
+// 散落半徑：只為了讓同時區的多根蠟燭不完全重疊。±0.3 度 ≈ 33 公里，
+// 小到能留在城市附近的陸地上（±1.5 度會把小島/沿海城市的蠟燭丟進海裡）。
+// zoom 已能分離重疊的蠟燭，不需要靠大偏移。rules 仍以 ≤1.5 為外層上限。
+const SCATTER_DEG = 0.3
+
+/** [-SCATTER_DEG, SCATTER_DEG] 的隨機散落偏移 */
 function jitter(): number {
-  return Math.round((Math.random() * 3 - 1.5) * 1000) / 1000
+  return Math.round((Math.random() * 2 - 1) * SCATTER_DEG * 1000) / 1000
 }
 
 /**
