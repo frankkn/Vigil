@@ -33,12 +33,17 @@ function viewBoxFor(cam: Camera, size: Size): ViewBox {
   return { x: cam.cx - w / 2, y: cam.cy - h / 2, w, h }
 }
 
+/** 經度環繞：cx 永遠落在 [0, WORLD_W)（地圖圖層渲染 ±360°，視覺無縫） */
+function wrapX(x: number): number {
+  return ((x % WORLD_W) + WORLD_W) % WORLD_W
+}
+
 function clampCamera(cam: Camera, size: Size): Camera {
   const zoom = Math.min(maxZoomFor(size), Math.max(minZoomFor(size), cam.zoom))
   const vbW = WORLD_W / zoom
   const vbH = vbW * (size.h / size.w)
-  // 某一軸的視窗比世界還大 → 該軸置中
-  const cx = vbW >= WORLD_W ? WORLD_W / 2 : Math.min(WORLD_W - vbW / 2, Math.max(vbW / 2, cam.cx))
+  // 橫向環繞、縱向 clamp（視窗比世界高時置中）
+  const cx = wrapX(cam.cx)
   const cy = vbH >= WORLD_H ? WORLD_H / 2 : Math.min(WORLD_H - vbH / 2, Math.max(vbH / 2, cam.cy))
   return { cx, cy, zoom }
 }
@@ -365,12 +370,15 @@ export function useMapCamera(opts: Opts) {
 
   const viewBox = camera ? viewBoxFor(camera, size) : null
   const pxPerUnit = viewBox ? size.w / viewBox.w : 1
+  const zoomRel = camera ? camera.zoom / minZoomFor(size) : 1
   const init = initialCamRef.current
+  const dxRaw = camera && init ? Math.abs(camera.cx - init.cx) : 0
+  const dxWrap = Math.min(dxRaw, WORLD_W - dxRaw)
   const isAway = !!(camera && init && (
     Math.abs(camera.zoom / init.zoom - 1) > 0.02 ||
-    Math.abs(camera.cx - init.cx) > 3 ||
+    dxWrap > 3 ||
     Math.abs(camera.cy - init.cy) > 3
   ))
 
-  return { camera, viewBox, size, pxPerUnit, isAway, reset }
+  return { camera, viewBox, size, pxPerUnit, zoomRel, isAway, reset }
 }
