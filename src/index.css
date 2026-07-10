@@ -22,3 +22,41 @@ html, body, #root {
   height: 100vh;
   height: 100dvh;
 }
+
+/* 燭光呼吸：極輕、極慢的明滅 + 微微脹縮，讓地圖活著卻不打擾 */
+@keyframes vigil-breathe {
+  0%, 100% { opacity: 0.82; transform: scale(0.96); }
+  50%      { opacity: 1;    transform: scale(1.05); }
+}
+.vigil-breathe {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vigil-breathe 4.2s ease-in-out infinite;
+}
+
+/* 點燃：一次性的輕淡入 + 微擴散 */
+@keyframes vigil-ignite {
+  0%   { opacity: 0; transform: scale(0.4); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: scale(1); }
+}
+.vigil-ignite {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vigil-ignite 1.4s ease-out;
+}
+
+/* 熄滅：燒完前緩緩縮暗，而非瞬間消失 */
+@keyframes vigil-extinguish {
+  0%   { opacity: 1;   transform: scale(1); }
+  100% { opacity: 0;   transform: scale(0.7); }
+}
+.vigil-dying {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vigil-extinguish 40s ease-in forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vigil-breathe, .vigil-ignite, .vigil-dying { animation: none; }
+}

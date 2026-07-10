@@ -13,6 +13,14 @@ interface Props {
   isMobile: boolean
 }
 
+const BREATHE_PERIOD = 4.2 // 秒，與 index.css 的 vigil-breathe 一致
+// 依 id 給每根燭火一個 [0, BREATHE_PERIOD) 的呼吸起始相位，避免齊步明滅
+function hashDelay(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
+  return (h % 1000) / 1000 * BREATHE_PERIOD
+}
+
 export default function WorldMap({ candles, ownCandleId, now, centerLatLng, isMobile }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const xformRef = useRef<HTMLDivElement>(null)
@@ -167,23 +175,35 @@ export default function WorldMap({ candles, ownCandleId, now, centerLatLng, isMo
               {candles.map(c => {
                 const [cx, cy] = project(c.lat + c.offsetLat, c.lng + c.offsetLng, WORLD_W, WORLD_H)
                 const isOwn = c.id === ownCandleId
-                const remaining = (c.expiresAt - now.getTime()) / (30 * 60 * 1000)
-                const opacity = 0.5 + 0.5 * Math.max(0, remaining)
+                const t = now.getTime()
+                // 生滅：出生 1.8s 內淡入放大、熄滅前 40s 漸暗縮小（純 CSS，跨每秒 tick 不重播）
+                const age = t - c.litAt
+                const left = c.expiresAt - t
+                const phase = age < 1800 ? 'vigil-ignite' : left < 40000 ? 'vigil-dying' : ''
+                // 呼吸錯開：每根燭火依 id 給不同起始相位，不會齊步明滅
+                const delay = -(hashDelay(c.id))
                 return (
                   <g
                     key={c.id}
                     transform={`translate(${cx},${cy}) scale(${1 / k})`}
-                    opacity={opacity}
                     style={{ cursor: 'pointer' }}
                     onMouseEnter={e => handleEnter(e, c.id)}
                     onMouseLeave={handleLeave}
                   >
-                    <circle r={isOwn ? 22 : 15} fill="url(#glowGrad)" />
-                    <circle r={isOwn ? 4.5 : 3.2} fill={isOwn ? '#fde68a' : '#fbbf24'} />
-                    <circle r={isOwn ? 2 : 1.3} fill="#fffbeb" />
-                    {isOwn && (
-                      <circle r={8.5} fill="none" stroke="#f59e0b" strokeWidth={1.2} strokeDasharray="2.5 2.5" opacity={0.85} />
-                    )}
+                    {/* 內層 g 承載生滅動畫（transform/opacity），不與外層的定位 transform 衝突 */}
+                    <g className={phase}>
+                      <circle
+                        className="vigil-breathe"
+                        style={{ animationDelay: `${delay}s` }}
+                        r={isOwn ? 22 : 15}
+                        fill="url(#glowGrad)"
+                      />
+                      <circle r={isOwn ? 4.5 : 3.2} fill={isOwn ? '#fde68a' : '#fbbf24'} />
+                      <circle r={isOwn ? 2 : 1.3} fill="#fffbeb" />
+                      {isOwn && (
+                        <circle r={8.5} fill="none" stroke="#f59e0b" strokeWidth={1.2} strokeDasharray="2.5 2.5" opacity={0.85} />
+                      )}
+                    </g>
                   </g>
                 )
               })}

@@ -4,6 +4,7 @@ import LightPanel from './components/LightPanel'
 import { ensureSignedIn } from './lib/firebase'
 import { lightCandle, subscribeCandles } from './lib/candles'
 import { getUserTz, getTzCity } from './data/timezones'
+import { dawnIntensity } from './lib/solar'
 import { useIsMobile } from './hooks/useIsMobile'
 import type { Candle } from './lib/types'
 
@@ -46,6 +47,12 @@ export default function App() {
   const alive = candles.filter(c => c.expiresAt > now.getTime())
   const ownCandle = alive.find(c => c.id === uid) ?? null
 
+  // 「快天亮了」：以自己時區城市計算的暖光強度（每分鐘變一次就夠，用整分鐘當依賴）
+  const dawn = useMemo(
+    () => dawnIntensity(centerLatLng[0], centerLatLng[1], now),
+    [centerLatLng, Math.floor(now.getTime() / 60000)],
+  )
+
   const handleLight = useCallback(async (message: string) => {
     if (!uid) return
     try {
@@ -69,6 +76,17 @@ export default function App() {
           isMobile={isMobile}
         />
       </div>
+
+      {/* 陪你到天亮：接近日出時，畫面底部極緩地透出一點暖色 */}
+      <div
+        style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5,
+          opacity: dawn,
+          background: 'radial-gradient(120% 80% at 50% 118%, rgba(251,176,102,0.5) 0%, rgba(244,140,120,0.22) 38%, rgba(180,120,160,0.05) 62%, transparent 78%)',
+          mixBlendMode: 'screen',
+          transition: 'opacity 8s linear',
+        }}
+      />
 
       {/* Top status */}
       <div
