@@ -69,8 +69,9 @@ export default function WorldMap({ candles, ownCandleId, now, centerLatLng, isMo
   const antiLng = sun.lng > 0 ? sun.lng - 180 : sun.lng + 180
   const [antiX, antiY] = project(antiLat, antiLng, WORLD_W, WORLD_H)
 
-  // 桌面 hover（觸控後 700ms 內忽略 iOS 合成的 mouseenter）
-  const handleEnter = useCallback((id: string) => {
+  // 桌面 hover（觸控後 700ms 內忽略 iOS 合成的 mouseenter；拖曳中按著鍵不觸發）
+  const handleEnter = useCallback((e: React.MouseEvent, id: string) => {
+    if (e.buttons !== 0) return
     if (Date.now() - lastTapAt.current < 700) return
     if (hideTimer.current) clearTimeout(hideTimer.current)
     setTooltipId(id)
@@ -171,7 +172,7 @@ export default function WorldMap({ candles, ownCandleId, now, centerLatLng, isMo
                     transform={`translate(${cx},${cy}) scale(${1 / k})`}
                     opacity={opacity}
                     style={{ cursor: 'pointer' }}
-                    onMouseEnter={() => handleEnter(c.id)}
+                    onMouseEnter={e => handleEnter(e, c.id)}
                     onMouseLeave={handleLeave}
                   >
                     <circle r={isOwn ? 22 : 15} fill="url(#glowGrad)" />

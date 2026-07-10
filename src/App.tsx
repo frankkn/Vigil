@@ -50,8 +50,10 @@ export default function App() {
     if (!uid) return
     try {
       await lightCandle(uid, getUserTz(), message)
-    } catch {
+      setError(null)
+    } catch (e) {
       setError('點燃失敗了，稍後再試')
+      throw e // 讓面板保留使用者剛打的話
     }
   }, [uid])
 

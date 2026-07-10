@@ -25,10 +25,25 @@ export async function lightCandle(uid: string, tz: string, message: string): Pro
     offsetLat: jitter(),
     offsetLng: jitter(),
   }
-  const trimmed = message.trim()
-  if (trimmed) data.message = trimmed.slice(0, 40)
+  // 依 code point 截斷（rules 的 size() 算的是 code point），避免切斷 emoji surrogate pair
+  const trimmed = [...message.trim()].slice(0, 40).join('')
+  if (trimmed) data.message = trimmed
 
-  await setDoc(doc(db, 'candles', uid), data)
+  try {
+    await setDoc(doc(db, 'candles', uid), data)
+  } catch (e) {
+    // 重點時：客戶端時鐘略快 → 前一根在伺服器眼中尚未燒完 → permission-denied。
+    // 稍等後用新的 litAt 重試一次，跨過邊界。
+    if ((e as { code?: string }).code === 'permission-denied') {
+      await new Promise(r => setTimeout(r, 2500))
+      const retryLit = Timestamp.now()
+      data.litAt = retryLit
+      data.expiresAt = Timestamp.fromMillis(retryLit.toMillis() + BURN_MS)
+      await setDoc(doc(db, 'candles', uid), data)
+    } else {
+      throw e
+    }
+  }
 }
 
 /**

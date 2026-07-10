@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Candle } from '../lib/types'
 
 interface Props {
@@ -10,12 +10,29 @@ interface Props {
 }
 
 const MAX = 40
+// 熄滅後多留一點「還在燒」的緩衝：伺服器時鐘可能略慢於本機，太早開放重點會被 rules 拒
+const RELIGHT_GRACE_MS = 2000
 
 export default function LightPanel({ ownCandle, now, onLight, disabled, isMobile }: Props) {
   const [message, setMessage] = useState('')
   const [pending, setPending] = useState(false)
+  const [kbInset, setKbInset] = useState(0)
 
-  const burning = !!ownCandle && now.getTime() < ownCandle.expiresAt
+  // iOS 鍵盤彈出時 visualViewport 縮小，把貼底底欄往上頂，避免被鍵盤蓋住
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const onChange = () => setKbInset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop))
+    vv.addEventListener('resize', onChange)
+    vv.addEventListener('scroll', onChange)
+    onChange()
+    return () => {
+      vv.removeEventListener('resize', onChange)
+      vv.removeEventListener('scroll', onChange)
+    }
+  }, [])
+
+  const burning = !!ownCandle && now.getTime() < ownCandle.expiresAt + RELIGHT_GRACE_MS
   const minsLeft = ownCandle
     ? Math.max(0, Math.round((ownCandle.expiresAt - now.getTime()) / 60000))
     : 0
@@ -25,11 +42,13 @@ export default function LightPanel({ ownCandle, now, onLight, disabled, isMobile
 
   async function handleLight() {
     if (burning || disabled || pending) return
-    const trimmed = message.trim().slice(0, MAX)
+    const trimmed = [...message.trim()].slice(0, MAX).join('')
     setPending(true)
     try {
       await onLight(trimmed)
       setMessage('')
+    } catch {
+      // 失敗時保留使用者剛打的話（錯誤訊息已由上層顯示）
     } finally {
       setPending(false)
     }
@@ -62,13 +81,14 @@ export default function LightPanel({ ownCandle, now, onLight, disabled, isMobile
           position: 'fixed',
           left: 0,
           right: 0,
-          bottom: 0,
+          bottom: kbInset,
           zIndex: 20,
           background: 'rgba(6, 13, 31, 0.9)',
           borderTop: '1px solid rgba(251, 191, 36, 0.15)',
           borderRadius: '14px 14px 0 0',
-          padding: '10px 14px calc(10px + env(safe-area-inset-bottom))',
+          padding: kbInset > 0 ? '10px 14px' : '10px 14px calc(10px + env(safe-area-inset-bottom))',
           backdropFilter: 'blur(12px)',
+          transition: 'bottom 0.15s ease-out',
         }}
       >
         {burning ? (

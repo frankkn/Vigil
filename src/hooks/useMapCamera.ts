@@ -160,6 +160,14 @@ export function useMapCamera(opts: Opts) {
 
     const onPointerDown = (e: PointerEvent) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return
+      // 讓按鈕（回家鈕等）自己處理點擊，不被手勢系統吃掉
+      if ((e.target as Element).closest?.('button')) return
+      // 若有待 commit 的 wheel 縮放，先落定，避免接下來的 tap 用到舊相機
+      if (wheelTimerRef.current !== null) {
+        clearTimeout(wheelTimerRef.current)
+        wheelTimerRef.current = null
+        commit()
+      }
       lastPointerTypeRef.current = e.pointerType
       if (pointers.current.size === 0) rectRef.current = el.getBoundingClientRect()
       try { el.setPointerCapture(e.pointerId) } catch { /* pointer 已離開時忽略 */ }
@@ -226,9 +234,9 @@ export function useMapCamera(opts: Opts) {
         commit()
         return
       }
-      // 輕點
+      // 輕點（雙點放大只在觸控走這條；滑鼠雙擊交給原生 dblclick，避免放大兩次）
       const last = lastTapRef.current
-      if (last && e.timeStamp - last.t < 320 && Math.hypot(pos.x - last.x, pos.y - last.y) < 30) {
+      if (e.pointerType === 'touch' && last && e.timeStamp - last.t < 320 && Math.hypot(pos.x - last.x, pos.y - last.y) < 30) {
         lastTapRef.current = null
         optsRef.current.onGestureStart()
         zoomAt(pos.x, pos.y, 2)
@@ -258,6 +266,7 @@ export function useMapCamera(opts: Opts) {
     }
 
     const onDblClick = (e: MouseEvent) => {
+      if ((e.target as Element).closest?.('button')) return
       e.preventDefault()
       if (lastPointerTypeRef.current === 'touch') return // 觸控雙點已在 pointer 路徑處理
       rectRef.current = el.getBoundingClientRect()
@@ -304,7 +313,9 @@ export function useMapCamera(opts: Opts) {
     el.addEventListener('pointercancel', onPointerEnd)
     el.addEventListener('wheel', onWheel, { passive: false })
     el.addEventListener('dblclick', onDblClick)
-    const hasGestureEvents = 'GestureEvent' in window
+    // GestureEvent 在 iOS Safari 也存在，但 iOS 會同時發雙指 pointer 事件（兩套 pinch 打架）。
+    // 只在沒有觸控的桌面（如 macOS trackpad）才用 gesture 事件。
+    const hasGestureEvents = 'GestureEvent' in window && navigator.maxTouchPoints === 0
     if (hasGestureEvents) {
       el.addEventListener('gesturestart', onGestureStart)
       el.addEventListener('gesturechange', onGestureChange)
@@ -322,6 +333,8 @@ export function useMapCamera(opts: Opts) {
         el.removeEventListener('gesturechange', onGestureChange)
         el.removeEventListener('gestureend', onGestureEnd)
       }
+      if (wheelTimerRef.current !== null) { clearTimeout(wheelTimerRef.current); wheelTimerRef.current = null }
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = 0 }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
