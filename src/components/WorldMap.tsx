@@ -155,6 +155,9 @@ export default function WorldMap({ candles, ownCandleId, now, centerLatLng, isMo
                     opacity={l.big ? 0.6 : Math.min(0.7, 0.45 + (labelMult - 1) * 0.2)}
                     letterSpacing={0.5 / k}
                   >
+                    {l.code && (
+                      <tspan fill="#c79a4a" fontWeight={600} letterSpacing={0.3 / k}>{l.code} </tspan>
+                    )}
                     {l.name}
                   </text>
                 ))}
