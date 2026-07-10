@@ -96,11 +96,19 @@ candles/{uid} = {
 
 ## Phases
 
-| Phase | 內容 |
-|-------|------|
-| 1 | 純本地原型：地圖 + 晨昏線 + 點蠟燭 + 留言氣泡動畫（假資料） |
-| 2 | Firebase 接上：匿名登入、candles 讀寫（含重點邏輯）、rules + emulator 測試 |
-| 3 | 部署 Firebase Hosting |
+| Phase | 內容 | 狀態 |
+|-------|------|------|
+| 1 | 純本地原型：地圖 + 晨昏線 + 點蠟燭 + 留言氣泡動畫（假資料） | ✅ |
+| 2 | Firebase 接上：匿名登入、candles 讀寫（含重點邏輯）、rules + emulator 測試 | ✅ |
+| 3 | 部署 Firebase Hosting | ✅ |
+
+## 部署
+
+- **正式站**：https://vigil-cc881.web.app
+- Hosting：`npm run build`，然後 `npx firebase deploy --only hosting`
+- Rules：`npx firebase deploy --only firestore:rules`（改動必須先過 `npm run test:rules`）
+- TTL policy：`candles` 集合、`expiresAt` 欄位（已在 Cloud Console 設定；TTL 刪除不走 rules，`delete: false` 擋不到它，這是刻意的）
+- 專案為 Blaze 方案（TTL 需要）；已設預算警示
 
 ---
 
