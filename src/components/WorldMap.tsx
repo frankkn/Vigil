@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { WORLD_PATH } from '../data/worldPath'
+import { WORLD_PATH, BORDER_PATH, COUNTRY_LABELS } from '../data/worldPath'
 import { sunPosition } from '../lib/solar'
 import { project } from '../lib/projection'
 import type { Candle } from '../lib/types'
@@ -62,8 +62,8 @@ export default function WorldMap({ candles, ownCandleId, now }: Props) {
         <defs>
           {/* Night side: radial gradient centered on anti-solar point */}
           <radialGradient id="nightGrad" cx={antiX / W} cy={antiY / H} r="0.75" gradientUnits="objectBoundingBox">
-            <stop offset="0%" stopColor="#00061a" stopOpacity="0.88" />
-            <stop offset="60%" stopColor="#000d2e" stopOpacity="0.75" />
+            <stop offset="0%" stopColor="#000614" stopOpacity="0.5" />
+            <stop offset="60%" stopColor="#000d2e" stopOpacity="0.35" />
             <stop offset="100%" stopColor="#001040" stopOpacity="0" />
           </radialGradient>
           {/* Glow for candles */}
@@ -84,13 +84,33 @@ export default function WorldMap({ candles, ownCandleId, now }: Props) {
         </defs>
 
         {/* Ocean background */}
-        <rect width={W} height={H} fill="#060d1f" />
+        <rect width={W} height={H} fill="#0a1226" />
 
         {/* Land */}
-        <path d={WORLD_PATH} fill="#111827" stroke="#1e2d45" strokeWidth="0.5" />
+        <path d={WORLD_PATH} fill="#22314f" stroke="#3d5178" strokeWidth="0.4" />
+
+        {/* Country borders (interior only) */}
+        <path d={BORDER_PATH} fill="none" stroke="#31436a" strokeWidth="0.3" opacity="0.9" />
 
         {/* Night overlay */}
         <rect width={W} height={H} fill="url(#nightGrad)" style={{ pointerEvents: 'none' }} />
+
+        {/* Country names — 安靜的灰藍，永遠不與燭光搶眼 */}
+        <g style={{ pointerEvents: 'none' }} fill="#8195bd" fontFamily="system-ui, sans-serif">
+          {COUNTRY_LABELS.map(l => (
+            <text
+              key={l.name}
+              x={l.x}
+              y={l.y}
+              textAnchor="middle"
+              fontSize={l.big ? 7 : 5.2}
+              opacity={l.big ? 0.6 : 0.45}
+              letterSpacing="0.5"
+            >
+              {l.name}
+            </text>
+          ))}
+        </g>
 
         {/* Candles */}
         {candles.map(c => {
