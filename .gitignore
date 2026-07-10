@@ -5,3 +5,5 @@ dist/
 .env.*.local
 .firebase/
 *-debug.log
+firebase-export-*/
+ui-debug.log

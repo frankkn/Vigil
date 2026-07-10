@@ -61,11 +61,15 @@ candles/{uid} = {
 - `delete: false`（不可提前熄滅）
 - `read`：對所有人開放
 
-**Firestore TTL policy** 清過期文件；前端 `onSnapshot` 訂閱 + 以 `expiresAt` 過濾。
+> **實作備註（時鐘偏差）**：`litAt == request.time` 精確成立需要 `serverTimestamp()`，但那樣客戶端算不出 `expiresAt = litAt + 30min`（不知道伺服器精確時間），兩個條件無法同時精確滿足——這是 Firestore rules 的已知限制。實際 rules：`expiresAt == litAt + 30min` **精確強制**（核心不變量：不可延長），`litAt` 允許落在 `request.time ± 2 分鐘`（容忍客戶端時鐘偏差）。最壞情況是時鐘快 2 分鐘的人的蠟燭在他人眼中燒 32 分鐘；不可能永生、不可能延長。
+
+**Firestore TTL policy** 清過期文件（欄位：`expiresAt`，需在 Console 手動設定一次）；前端 `onSnapshot` 訂閱 + 以 `expiresAt` 過濾（TTL 清檔有延遲，客戶端過濾是顯示正確性的真正防線）。
 
 ---
 
 ## Rules 測試（@firebase/rules-unit-testing）
+
+跑法：`npm run test:rules`（會自動起 Firestore emulator，需要 Java）。本機開發連 emulator：`npm run emulators` + `npm run dev:emu`。
 
 至少涵蓋：
 

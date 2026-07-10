@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import type { Candle } from '../lib/fakeCandles'
+import type { Candle } from '../lib/types'
 
 interface Props {
   ownCandle: Candle | null
   now: Date
-  onLight: (message: string) => void
+  onLight: (message: string) => Promise<void> | void
+  disabled?: boolean
 }
 
-export default function LightPanel({ ownCandle, now, onLight }: Props) {
+export default function LightPanel({ ownCandle, now, onLight, disabled }: Props) {
   const [message, setMessage] = useState('')
+  const [pending, setPending] = useState(false)
   const MAX = 40
 
   const minsLeft = ownCandle
@@ -20,11 +22,16 @@ export default function LightPanel({ ownCandle, now, onLight }: Props) {
 
   const canRelight = !ownCandle || now.getTime() >= ownCandle.expiresAt
 
-  function handleLight() {
-    if (!canRelight) return
+  async function handleLight() {
+    if (!canRelight || disabled || pending) return
     const trimmed = message.trim().slice(0, MAX)
-    onLight(trimmed)
-    setMessage('')
+    setPending(true)
+    try {
+      await onLight(trimmed)
+      setMessage('')
+    } finally {
+      setPending(false)
+    }
   }
 
   return (
@@ -96,6 +103,7 @@ export default function LightPanel({ ownCandle, now, onLight }: Props) {
           </div>
           <button
             onClick={handleLight}
+            disabled={disabled || pending}
             style={{
               width: '100%',
               padding: '9px 0',
@@ -105,15 +113,16 @@ export default function LightPanel({ ownCandle, now, onLight }: Props) {
               color: '#fbbf24',
               fontSize: 14,
               fontWeight: 500,
-              cursor: 'pointer',
+              cursor: disabled || pending ? 'default' : 'pointer',
+              opacity: disabled || pending ? 0.5 : 1,
               letterSpacing: '0.02em',
-              transition: 'background 0.2s',
+              transition: 'background 0.2s, opacity 0.3s',
               fontFamily: 'inherit',
             }}
             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245, 158, 11, 0.25)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'rgba(245, 158, 11, 0.15)')}
           >
-            {ownCandle ? '再點一根' : '點燃蠟燭'}
+            {pending ? '點燃中…' : ownCandle ? '再點一根' : '點燃蠟燭'}
           </button>
         </div>
       )}

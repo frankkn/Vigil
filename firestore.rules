@@ -1,0 +1,59 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /candles/{uid} {
+
+      // 一根蠟燭文件的完整驗證。
+      // 時間戳注意：litAt/expiresAt 由客戶端送出。
+      // 「expiresAt 必須剛好 = litAt + 30 分鐘」精確強制（核心不變量：不可延長）。
+      // 「litAt ≈ 現在」允許 ±2 分鐘時鐘偏差 —— serverTimestamp() 無法同時滿足
+      // 兩個條件（客戶端算不出 server time + 30min），這是 Firestore 的已知限制。
+      function isValidCandle() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['tz', 'message', 'litAt', 'expiresAt', 'offsetLat', 'offsetLng'])
+          && d.keys().hasAll(['tz', 'litAt', 'expiresAt', 'offsetLat', 'offsetLng'])
+          // tz：IANA 時區形狀（如 Asia/Taipei、Etc/GMT+8、America/Argentina/Buenos_Aires、UTC）
+          && d.tz is string
+          && d.tz.size() >= 2 && d.tz.size() <= 40
+          && d.tz.matches('[A-Za-z-]+(/[A-Za-z0-9_+-]+){0,2}')
+          // message：選填，純文字，<= 40 字（rules 的 size() 算的是 unicode 字元數）
+          && (!('message' in d) || (d.message is string && d.message.size() <= 40))
+          // 時間戳
+          && d.litAt is timestamp
+          && d.expiresAt is timestamp
+          && d.litAt >= request.time - duration.value(2, 'm')
+          && d.litAt <= request.time + duration.value(2, 'm')
+          && d.expiresAt == d.litAt + duration.value(30, 'm')
+          // 地圖散落偏移：|offset| <= 1.5 度
+          && d.offsetLat is number
+          && d.offsetLat >= -1.5 && d.offsetLat <= 1.5
+          && d.offsetLng is number
+          && d.offsetLng >= -1.5 && d.offsetLng <= 1.5;
+      }
+
+      // 誰都能看見夜面上的燭光
+      allow read: if true;
+
+      // 點燃：文件 ID 必須是自己的 uid（一人一燭）
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && isValidCandle();
+
+      // 重點（覆寫）：只有前一根燒完之後才允許；燃燒中任何欄位都不可動
+      allow update: if request.auth != null
+        && request.auth.uid == uid
+        && resource.data.expiresAt <= request.time
+        && isValidCandle();
+
+      // 不可提前熄滅
+      allow delete: if false;
+    }
+
+    // 其他一切不開放
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

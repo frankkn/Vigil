@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { WORLD_PATH } from '../data/worldPath'
 import { sunPosition } from '../lib/solar'
 import { project } from '../lib/projection'
-import type { Candle } from '../lib/fakeCandles'
+import type { Candle } from '../lib/types'
 
 const W = 1000
 const H = 500

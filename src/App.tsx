@@ -1,68 +1,57 @@
 import { useState, useEffect, useCallback } from 'react'
 import WorldMap from './components/WorldMap'
 import LightPanel from './components/LightPanel'
-import { FAKE_CANDLES, type Candle } from './lib/fakeCandles'
-import { getUserTz, getTzCity } from './data/timezones'
-
-const UID = 'local-user'
-const BURN_MS = 30 * 60 * 1000
-
-function jitter(): number {
-  return (Math.random() - 0.5) * 3  // [-1.5, 1.5]
-}
+import { ensureSignedIn } from './lib/firebase'
+import { lightCandle, subscribeCandles } from './lib/candles'
+import { getUserTz } from './data/timezones'
+import type { Candle } from './lib/types'
 
 export default function App() {
   const [now, setNow] = useState(() => new Date())
-  const [candles, setCandles] = useState<Candle[]>(FAKE_CANDLES)
-  const [ownCandleId, setOwnCandleId] = useState<string | null>(null)
+  const [uid, setUid] = useState<string | null>(null)
+  const [candles, setCandles] = useState<Candle[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [subKey, setSubKey] = useState(0)
 
-  // Tick every second
+  // 每秒 tick
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(id)
   }, [])
 
-  // Remove expired candles
+  // 匿名登入（使用者無感）
   useEffect(() => {
-    setCandles(prev => prev.filter(c => c.expiresAt > now.getTime()))
-  }, [now])
+    return ensureSignedIn(setUid, () => setError('連不上，燭光暫時看不見'))
+  }, [])
 
-  const ownCandle = candles.find(c => c.id === ownCandleId && c.expiresAt > now.getTime()) ?? null
+  // 訂閱蠟燭；query 的過期粗篩會隨時間變舊，每 15 分鐘重建一次訂閱
+  useEffect(() => {
+    const unsub = subscribeCandles(
+      cs => { setCandles(cs); setError(null) },
+      () => setError('連不上，燭光暫時看不見'),
+    )
+    const refresh = setTimeout(() => setSubKey(k => k + 1), 15 * 60 * 1000)
+    return () => { unsub(); clearTimeout(refresh) }
+  }, [subKey])
 
-  const handleLight = useCallback((message: string) => {
-    const tz = getUserTz()
-    const tzCity = getTzCity(tz)
-    const litAt = now.getTime()
-    const expiresAt = litAt + BURN_MS
+  // 畫面上只留還亮著的
+  const alive = candles.filter(c => c.expiresAt > now.getTime())
+  const ownCandle = alive.find(c => c.id === uid) ?? null
 
-    const newCandle: Candle = {
-      id: UID,
-      tz,
-      city: tzCity?.city ?? tz,
-      lat: tzCity?.lat ?? 0,
-      lng: tzCity?.lng ?? 0,
-      message: message || undefined,
-      litAt,
-      expiresAt,
-      offsetLat: jitter(),
-      offsetLng: jitter(),
-      isOwn: true,
+  const handleLight = useCallback(async (message: string) => {
+    if (!uid) return
+    try {
+      await lightCandle(uid, getUserTz(), message)
+    } catch {
+      setError('點燃失敗了，稍後再試')
     }
-
-    setCandles(prev => {
-      const without = prev.filter(c => c.id !== UID)
-      return [...without, newCandle]
-    })
-    setOwnCandleId(UID)
-  }, [now])
-
-  const activeCount = candles.filter(c => c.expiresAt > now.getTime()).length
+  }, [uid])
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#060d1f', overflow: 'hidden' }}>
       {/* Map fills entire background */}
       <div style={{ position: 'absolute', inset: 0 }}>
-        <WorldMap candles={candles} ownCandleId={ownCandleId} now={now} />
+        <WorldMap candles={alive} ownCandleId={uid} now={now} />
       </div>
 
       {/* Top status */}
@@ -73,9 +62,11 @@ export default function App() {
           pointerEvents: 'none',
         }}
       >
-        此刻有{' '}
-        <span style={{ color: '#fbbf24' }}>{activeCount}</span>
-        {' '}根蠟燭亮著
+        {error ? (
+          <span style={{ color: '#6b7280' }}>{error}</span>
+        ) : (
+          <>此刻有 <span style={{ color: '#fbbf24' }}>{alive.length}</span> 根蠟燭亮著</>
+        )}
       </div>
 
       {/* Title */}
@@ -89,7 +80,7 @@ export default function App() {
 
       {/* Control panel — bottom right */}
       <div style={{ position: 'absolute', bottom: 32, right: 28 }}>
-        <LightPanel ownCandle={ownCandle} now={now} onLight={handleLight} />
+        <LightPanel ownCandle={ownCandle} now={now} onLight={handleLight} disabled={!uid} />
       </div>
     </div>
   )

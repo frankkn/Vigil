@@ -5,8 +5,11 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
+    "dev:emu": "vite --mode emulator",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:rules": "firebase emulators:exec --only firestore \"vitest run\"",
+    "emulators": "firebase emulators:start --only auth,firestore"
   },
   "repository": {
     "type": "git",
@@ -21,16 +24,20 @@
   },
   "homepage": "https://github.com/frankkn/Vigil#readme",
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
     "@tailwindcss/vite": "^4.3.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "firebase-tools": "^15.23.0",
     "playwright": "^1.61.1",
     "tailwindcss": "^4.3.2",
     "typescript": "^7.0.2",
-    "vite": "^8.1.4"
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
+    "firebase": "^12.16.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "topojson-client": "^3.1.0",
